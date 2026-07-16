@@ -19,6 +19,13 @@ If that's not something you ever plan to do, consider removing this section.
 - Fixes [GHSA-pxcg-wp85-mcrg](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-pxcg-wp85-mcrg)
 - Fixes [GHSA-wx26-fvpq-v9rp](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-wx26-fvpq-v9rp)
 
+### Added
+
+- Added optional `pip-index-url` parameter to pass `PIP_INDEX_URL` to Hermeto for pip dependency prefetch.
+  When set, this URL is used as a fallback package index when `requirements.txt` does not specify `--index-url`.
+  To use this parameter, add `pip-index-url` (type: string, default: `""`) to your pipeline params
+  and pass it to the prefetch-dependencies task.
+
 ## 0.7.0
 
 - Hermeto release - <https://github.com/hermetoproject/hermeto/releases/tag/0.60.0>

@@ -67,6 +67,12 @@ spec:
   - description: The OCI repository where the Trusted Artifacts are stored.
     name: ociStorage
     type: string
+  - default: ""
+    description: Python package index URL to use when prefetching pip dependencies.
+      Used as a fallback when requirements.txt does not specify --index-url. When
+      empty (default), the standard PyPI index is used.
+    name: pip-index-url
+    type: string
   - default: spdx
     description: 'Select the SBOM format to generate. Valid values: spdx, cyclonedx.'
     name: sbom-type
@@ -151,6 +157,8 @@ spec:
       value: $(params.config-file-content)
     - name: KBC_PD_ENABLE_PACKAGE_REGISTRY_PROXY
       value: $(params.enable-package-registry-proxy)
+    - name: PIP_INDEX_URL
+      value: $(params.pip-index-url)
     image: quay.io/konflux-ci/hermeto:0.60.1@sha256:dc9af128f39284d579fec9633161f5931d19eb5c80e70ef53bae80d6bdcb7ff7
     name: prefetch-dependencies
     script: |
@@ -190,6 +198,10 @@ spec:
       if [ -n "${CONFIG_FILE_CONTENT}" ]; then
         echo "${CONFIG_FILE_CONTENT}" >/mnt/config/config.yaml
         export KBC_PD_CONFIG_FILE=/mnt/config/config.yaml
+      fi
+
+      if [ -z "${PIP_INDEX_URL}" ]; then
+        unset PIP_INDEX_URL
       fi
 
       konflux-build-cli prefetch-dependencies

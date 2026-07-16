@@ -32,6 +32,7 @@ params:
 |SERVICE_CA_TRUST_CONFIG_MAP_KEY|The name of the key in the ConfigMap that contains the service CA bundle data. Used to verify TLS connections to in-cluster services such as the package registry proxy.|service-ca.crt|false|
 |SERVICE_CA_TRUST_CONFIG_MAP_NAME|The name of the ConfigMap to read service CA bundle data from. Used to verify TLS connections to in-cluster services such as the package registry proxy.|openshift-service-ca.crt|false|
 |enable-package-registry-proxy|Use the package registry proxy when prefetching dependencies|true|false|
+|pip-index-url|Python package index URL for pip dependency prefetch. Used as a fallback when requirements.txt does not specify --index-url.|""|false|
 |ACTIVATION_KEY|Name of secret which contains subscription activation key|activation-key|false|
 
 ## Workspaces

@@ -18,6 +18,7 @@ Task that prefetches project dependencies for hermetic build.
 |mode|Control how input requirement violations are handled: strict (errors) or permissive (warnings).|strict|false|
 |ociArtifactExpiresAfter|Expiration date for the trusted artifacts created in the OCI repository. An empty string means the artifacts do not expire.|""|false|
 |ociStorage|The OCI repository where the Trusted Artifacts are stored.||true|
+|pip-index-url|Python package index URL for pip dependency prefetch. Used as a fallback when requirements.txt does not specify --index-url.|""|false|
 |sbom-type|Select the SBOM format to generate. Valid values: spdx, cyclonedx.|spdx|false|
 
 ## Results
