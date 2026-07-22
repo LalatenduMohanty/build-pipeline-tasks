@@ -11,6 +11,68 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.11.0
+
+### Changed
+
+- When scanning the built image with Syft, scans the image filesystem as
+  a directory instead of scanning the the image as an OCI archive. This improves
+  the scanning time, disk usage and may improve memory usage. More details in
+  [konflux-build-cli/docs/design/syft-image-scanning.md].
+
+### Removed
+
+- BREAKING: Removed the `sbom-syft-generate` step, SBOM generation now happens
+  in the `build` step.
+  - If you have step overrides configured for `sbom-syft-generate`, the pipeline
+    will fail with `invalid StepOverride`. See the migration guidance below.
+
+### Migration guidance
+
+If you have `sbom-syft-generate` step overrides in the `.spec.taskRunSpecs` section
+in your PipelineRun, please remove them. In most cases, this should be all.
+
+However, if you were previously requesting more resources for SBOM generation
+than for the build step itself, there is a chance that the build will fail.
+In this case, move the relevant overrides to the build step.
+
+For example:
+
+```diff
+ spec:
+   taskRunSpecs:
+     - pipelineTaskName: build-container
+       stepSpecs:
+-        - name: sbom-syft-generate
++        - name: build
+           computeResources:
+             requests:
+               memory: 16Gi
+             limits:
+               memory: 16Gi
+```
+
+This will work for build steps that run in-cluster - single-platform builds
+and typically also the amd64 builds in a multi-platform build setup.
+
+For build steps that run on remote VMs, the overrides have no effect. In case
+the build fails, please switch to a larger VM flavor (consult the documentation
+of your particular Konflux deployment to see what's available).
+
+For example:
+
+```diff
+ spec:
+   params:
+     - name: build-platforms
+       value:
+         - localhost
+-        - linux/arm64
++        - linux-mxlarge/arm64
+```
+
+[konflux-build-cli/docs/design/syft-image-scanning.md]: https://github.com/konflux-ci/konflux-build-cli/blob/3fe637dbb77f05e107682c186446bb027bf98f86/docs/design/syft-image-scanning.md
+
 ## 0.10.7
 
 ### Fixed
