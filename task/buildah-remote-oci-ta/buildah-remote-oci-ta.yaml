@@ -620,10 +620,10 @@ spec:
         sbom_args+=(
           --sbom-format "$SBOM_TYPE"
           --syft-select-catalogers "$SBOM_SYFT_SELECT_CATALOGERS"
-          --syft-image-output "/var/workdir/sbom-image.json"
+          --syft-image-output /shared/sbom-image.json
         )
         if [[ "${HERMETIC}" == "false" && "${SBOM_SOURCE_SCAN_ENABLED}" == "true" ]]; then
-          sbom_args+=(--syft-source-output "/var/workdir/sbom-source.json")
+          sbom_args+=(--syft-source-output /shared/sbom-source.json)
         fi
       fi
 
@@ -682,7 +682,7 @@ spec:
       # Save the SBOM produced in prefetch so it can be merged into the final SBOM later
       if [ -f "${prefetch_dir}/output/bom.json" ]; then
         echo "Making copy of sbom-prefetch.json"
-        cp "${prefetch_dir}/output/bom.json" ./sbom-prefetch.json
+        cp "${prefetch_dir}/output/bom.json" /shared/sbom-prefetch.json
       fi
 
       image_name=$(echo "${IMAGE##*/}" | tr ':' '-')
@@ -966,19 +966,19 @@ spec:
 
       mobster_args+=(
         oci-image
-        --from-syft "/var/workdir/sbom-image.json"
+        --from-syft /shared/sbom-image.json
         --image-pullspec "$IMAGE_URL"
         --image-digest "$IMAGE_DIGEST"
         --parsed-dockerfile-path "/shared/parsed_dockerfile.json"
         --base-image-digest-file "/shared/base_images_digests"
       )
 
-      if [ -f "/var/workdir/sbom-source.json" ]; then
-        mobster_args+=(--from-syft "/var/workdir/sbom-source.json")
+      if [ -f /shared/sbom-source.json ]; then
+        mobster_args+=(--from-syft /shared/sbom-source.json)
       fi
 
-      if [ -f "/var/workdir/sbom-prefetch.json" ]; then
-        mobster_args+=(--from-hermeto "/var/workdir/sbom-prefetch.json")
+      if [ -f /shared/sbom-prefetch.json ]; then
+        mobster_args+=(--from-hermeto /shared/sbom-prefetch.json)
       fi
 
       if [ -n "${TARGET_STAGE}" ]; then
