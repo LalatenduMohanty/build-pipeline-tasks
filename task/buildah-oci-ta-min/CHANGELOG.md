@@ -33,6 +33,19 @@ If that's not something you ever plan to do, consider removing this section.
 
 ### Migration guidance
 
+Buildah v0.11.0 comes with a migration script that will attempt to automatically
+fix the step overrides in your PipelineRuns. In most cases, no manual action will
+be needed. But there are cases that the script cannot handle:
+
+1. Your PipelineRun references an external Pipeline. In this case, the migration
+   script will never get a chance to run on the PipelineRun.
+2. Your PipelineRun is multi-platform, SBOM generation needs more resources
+   than the build itself and the remote VMs do not have sufficient resources.
+
+If the migration script doesn't solve the problem, please follow the procedure below.
+
+#### Manual procedure
+
 If you have `sbom-syft-generate` or `push` step overrides in the `.spec.taskRunSpecs`
 section in your PipelineRun, please remove them. In most cases, this should be all.
 
