@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.3"
+    app.kubernetes.io/version: 0.3.1
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
     tekton.dev/tags: "image-build, konflux"
@@ -80,6 +80,8 @@ spec:
       value: $(params.ALWAYS_BUILD_INDEX)
     - name: STORAGE_DRIVER
       value: $(params.STORAGE_DRIVER)
+    - name: SBOM_SKIP_VALIDATION
+      value: $(params.SBOM_SKIP_VALIDATION)
     imagePullPolicy: IfNotPresent
     volumeMounts:
       - name: shared-dir
