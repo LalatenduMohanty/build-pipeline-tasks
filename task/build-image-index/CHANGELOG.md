@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+
+- Export `SBOM_SKIP_VALIDATION` into the step environment so the create-sbom step honors the parameter.
+The parameter did nothing before. Now it works as expected.
+
 ## 0.3
 
 ### Changed
