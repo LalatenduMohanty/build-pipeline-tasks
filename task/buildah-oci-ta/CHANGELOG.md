@@ -11,6 +11,16 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.10.6
+
+### Changed
+
+- Consolidated all keyless signing code in the upload-sbom step.
+  Previously, if keyless signing was enabled, the task would sign the image
+  in the push step and then the SBOM in upload-sbom step. Now, it will sign both
+  in the upload-sbom step. This has no practical impact, but enables a larger
+  rework of the push step in the future.
+
 ## 0.10.5
 
 ### Added
