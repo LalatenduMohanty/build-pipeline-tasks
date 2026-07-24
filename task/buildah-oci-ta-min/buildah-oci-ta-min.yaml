@@ -984,6 +984,7 @@ spec:
         echo "[$(date --utc -Ins)] Sign image"
         echo "Signing image ${IMAGE_REF} using keyless signing"
         if ! retry cosign sign -y \
+          --use-signing-config=false \
           --rekor-url="${REKOR_URL}" \
           --fulcio-url="${SIGSTORE_FULCIO_URL}" \
           --oidc-issuer="${SIGSTORE_OIDC_ISSUER}" \
@@ -1005,6 +1006,7 @@ spec:
           echo "[$(date --utc -Ins)] Sign SBOM"
           echo "Signing and attaching SBOM to ${IMAGE_REF} using keyless signing"
           if ! retry cosign attest -y --type "${ATT_SBOM_TYPE}" --predicate sbom.json \
+            --use-signing-config=false \
             --rekor-url="${REKOR_URL}" \
             --fulcio-url="${SIGSTORE_FULCIO_URL}" \
             --oidc-issuer="${SIGSTORE_OIDC_ISSUER}" \
