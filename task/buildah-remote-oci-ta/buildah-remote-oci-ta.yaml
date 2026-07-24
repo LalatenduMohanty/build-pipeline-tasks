@@ -320,6 +320,8 @@ spec:
       value: $(params.LOG_LEVEL)
     - name: PRIVILEGED_NESTED
       value: $(params.PRIVILEGED_NESTED)
+    - name: PUSH_FORMAT
+      value: $(params.BUILDAH_FORMAT)
     - name: RHSM_MOUNT_CA_CERTS
       value: $(params.RHSM_MOUNT_CA_CERTS)
     - name: SBOM_SKIP_VALIDATION
@@ -344,6 +346,8 @@ spec:
       value: $(params.STORAGE_DRIVER)
     - name: TARGET_STAGE
       value: $(params.TARGET_STAGE)
+    - name: TASKRUN_NAME
+      value: $(context.taskRun.name)
     - name: TLSVERIFY
       value: $(params.TLSVERIFY)
     - name: WORKINGDIR_MOUNT
@@ -633,6 +637,11 @@ spec:
       cmd=(
         konflux-build-cli image build
         -f "$dockerfile_path" -t "$IMAGE" --source "$SOURCE_CODE_DIR" --context "$CONTEXT"
+        # use the taskRun name as a unique tag to prevent the $IMAGE from being garbage collected
+        # if another build pushes to the same $IMAGE output ref
+        --additional-tags "$TASKRUN_NAME"
+        --push
+        --push-format "$PUSH_FORMAT"
         --secret-dirs "src=/additional-secret,name=$ADDITIONAL_SECRET,optional=true"
         --workdir-mount "$WORKINGDIR_MOUNT"
         --target "$TARGET_STAGE"
@@ -675,8 +684,13 @@ spec:
 
       echo "[$(date --utc -Ins)] $(printf '%q ' "${cmd[@]}")"
 
-      "${cmd[@]}"
+      "${cmd[@]}" | tee /tmp/results.json
 
+      jq -j .image_url /tmp/results.json >"$(results.IMAGE_URL.path)"
+      jq -j .digest /tmp/results.json >"$(results.IMAGE_DIGEST.path)"
+      jq -j '"\(.image_url)@\(.digest)"' /tmp/results.json >"$(results.IMAGE_REF.path)"
+
+      echo
       echo "[$(date --utc -Ins)] Add metadata"
 
       # Save the SBOM produced in prefetch so it can be merged into the final SBOM later
@@ -684,10 +698,6 @@ spec:
         echo "Making copy of sbom-prefetch.json"
         cp "${prefetch_dir}/output/bom.json" /shared/sbom-prefetch.json
       fi
-
-      image_name=$(echo "${IMAGE##*/}" | tr ':' '-')
-      buildah push "$IMAGE" oci:"/shared/$image_name.oci:$IMAGE"
-      echo "/shared/$image_name.oci" >/shared/container_path
 
       echo "[$(date --utc -Ins)] End build"
 
@@ -729,6 +739,7 @@ spec:
           -e INHERIT_BASE_IMAGE_LABELS="${INHERIT_BASE_IMAGE_LABELS@Q}" \
           -e KBC_LOG_LEVEL="${KBC_LOG_LEVEL@Q}" \
           -e PRIVILEGED_NESTED="${PRIVILEGED_NESTED@Q}" \
+          -e PUSH_FORMAT="${PUSH_FORMAT@Q}" \
           -e RHSM_MOUNT_CA_CERTS="${RHSM_MOUNT_CA_CERTS@Q}" \
           -e SBOM_SKIP_VALIDATION="${SBOM_SKIP_VALIDATION@Q}" \
           -e SBOM_SOURCE_SCAN_ENABLED="${SBOM_SOURCE_SCAN_ENABLED@Q}" \
@@ -741,6 +752,7 @@ spec:
           -e SQUASH="${SQUASH@Q}" \
           -e STORAGE_DRIVER="${STORAGE_DRIVER@Q}" \
           -e TARGET_STAGE="${TARGET_STAGE@Q}" \
+          -e TASKRUN_NAME="${TASKRUN_NAME@Q}" \
           -e TLSVERIFY="${TLSVERIFY@Q}" \
           -e WORKINGDIR_MOUNT="${WORKINGDIR_MOUNT@Q}" \
           -e YUM_REPOS_D_FETCHED="${YUM_REPOS_D_FETCHED@Q}" \
@@ -773,8 +785,6 @@ spec:
         rsync -razW --stats "$SSH_HOST:$BUILD_DIR/volumes/shared/" /shared/
         rsync -razW --stats "$SSH_HOST:$BUILD_DIR/volumes/workdir/" /var/workdir/
         rsync -razW --stats "$SSH_HOST:$BUILD_DIR/results/" "/tekton/results/"
-        echo "[$(date --utc -Ins)] Buildah pull"
-        buildah pull "oci:$(cat /shared/container_path):$IMAGE"
       else
         bash scripts/script-build.sh "$@"
       fi
@@ -806,100 +816,6 @@ spec:
       readOnly: true
     - mountPath: /ssh
       name: ssh
-      readOnly: true
-    workingDir: /var/workdir
-  - computeResources:
-      limits:
-        cpu: 600m
-        memory: 4Gi
-      requests:
-        cpu: 600m
-        memory: 4Gi
-    env:
-    - name: HOME
-      value: /root
-    - name: BUILDAH_FORMAT
-      value: $(params.BUILDAH_FORMAT)
-    - name: TASKRUN_NAME
-      value: $(context.taskRun.name)
-    image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
-    name: push
-    script: |
-      #!/bin/bash
-      set -euo pipefail
-      if [ "${IMAGE_APPEND_PLATFORM}" == "true" ]; then
-        IMAGE="${IMAGE}-${PLATFORM//[^a-zA-Z0-9]/-}"
-        export IMAGE
-      fi
-
-      echo "[$(date --utc -Ins)] Update CA trust"
-
-      ca_bundle=/mnt/trusted-ca/ca-bundle.crt
-      if [ -f "$ca_bundle" ]; then
-        echo "INFO: Using mounted CA bundle: $ca_bundle"
-        cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors
-        update-ca-trust
-      fi
-
-      echo "[$(date --utc -Ins)] Convert image"
-
-      # While we can build images with the desired format, we will simplify any local
-      # and remote build differences by just performing any necessary conversions at
-      # push time.
-      push_format=oci
-      if [ "${BUILDAH_FORMAT}" == "docker" ]; then
-        push_format=docker
-      fi
-
-      echo "[$(date --utc -Ins)] Push image with unique tag"
-
-      buildah_retries=3
-
-      # Push to a unique tag based on the TaskRun name to avoid race conditions
-      echo "Pushing to ${IMAGE%:*}:${TASKRUN_NAME}"
-      if ! retry buildah push \
-        --format="$push_format" \
-        --retry "$buildah_retries" \
-        --tls-verify="$TLSVERIFY" \
-        "$IMAGE" \
-        "docker://${IMAGE%:*}:${TASKRUN_NAME}"; then
-        echo "Failed to push image to ${IMAGE%:*}:${TASKRUN_NAME}"
-        exit 1
-      fi
-
-      echo "[$(date --utc -Ins)] Push image with git revision"
-
-      # Push to a tag based on the git revision
-      echo "Pushing to ${IMAGE}"
-      if ! retry buildah push \
-        --format="$push_format" \
-        --retry "$buildah_retries" \
-        --tls-verify="$TLSVERIFY" \
-        --digestfile "/var/workdir/image-digest" "$IMAGE" \
-        "docker://$IMAGE"; then
-        echo "Failed to push image to $IMAGE"
-        exit 1
-      fi
-
-      tee "$(results.IMAGE_DIGEST.path)" <"/var/workdir"/image-digest
-      echo -n "$IMAGE" | tee "$(results.IMAGE_URL.path)"
-      {
-        echo -n "${IMAGE}@"
-        cat "/var/workdir/image-digest"
-      } >"$(results.IMAGE_REF.path)"
-      echo
-
-      echo "[$(date --utc -Ins)] End push"
-    securityContext:
-      capabilities:
-        add:
-        - SETFCAP
-      runAsUser: 0
-    volumeMounts:
-    - mountPath: /var/lib/containers
-      name: varlibcontainers
-    - mountPath: /mnt/trusted-ca
-      name: trusted-ca
       readOnly: true
     workingDir: /var/workdir
   - args:

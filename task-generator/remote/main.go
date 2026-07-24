@@ -288,8 +288,6 @@ if ! [[ $IS_LOCALHOST ]]; then
 		ret += "\n  rsync -razW --stats \"$SSH_HOST:$BUILD_DIR/results/\" \"/tekton/results/\""
 
 		ret += `
-  echo "[$(date --utc -Ins)] Buildah pull"
-  buildah pull "oci:$(cat /shared/container_path):$IMAGE"
 else
   bash ` + containerScript + ` "$@"
 fi

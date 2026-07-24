@@ -19,22 +19,28 @@ If that's not something you ever plan to do, consider removing this section.
   a directory instead of scanning the the image as an OCI archive. This improves
   the scanning time, disk usage and may improve memory usage. More details in
   [konflux-build-cli/docs/design/syft-image-scanning.md].
+- The remote variants of this task now push the built image to the registry directly
+  from the build VM instead of rsyncing the image back to the cluster first.
+  For large images, this significantly reduces the time spent on network transfers.
 
 ### Removed
 
 - BREAKING: Removed the `sbom-syft-generate` step, SBOM generation now happens
   in the `build` step.
-  - If you have step overrides configured for `sbom-syft-generate`, the pipeline
-    will fail with `invalid StepOverride`. See the migration guidance below.
+- BREAKING: Removed the `push` step, the push now happens in the `build` step.
+- If you have step overrides configured for either of the two removed steps,
+  the pipeline will fail with `invalid StepOverride`. See the migration guidance below.
 
 ### Migration guidance
 
-If you have `sbom-syft-generate` step overrides in the `.spec.taskRunSpecs` section
-in your PipelineRun, please remove them. In most cases, this should be all.
+If you have `sbom-syft-generate` or `push` step overrides in the `.spec.taskRunSpecs`
+section in your PipelineRun, please remove them. In most cases, this should be all.
 
 However, if you were previously requesting more resources for SBOM generation
 than for the build step itself, there is a chance that the build will fail.
-In this case, move the relevant overrides to the build step.
+In this case, move the relevant overrides to the build step. The same technically
+applies for the push step, but it's highly unlikely that pushing would require
+more resources than the build.
 
 For example:
 

@@ -36,10 +36,10 @@
   path: /spec/steps/1/computeResources/requests/cpu
   value: 500m
 
-# push step
+# prepare-sboms step
 - op: test
   path: /spec/steps/2/name
-  value: push
+  value: prepare-sboms
 - op: replace
   path: /spec/steps/2/computeResources/limits/memory
   value: 256Mi
@@ -53,36 +53,19 @@
   path: /spec/steps/2/computeResources/requests/cpu
   value: 100m
 
-# prepare-sboms step
+# upload-sbom step
 - op: test
   path: /spec/steps/3/name
-  value: prepare-sboms
+  value: upload-sbom
 - op: replace
   path: /spec/steps/3/computeResources/limits/memory
-  value: 256Mi
+  value: 512Mi
 - op: replace
   path: /spec/steps/3/computeResources/requests/memory
-  value: 256Mi
+  value: 512Mi
 - op: replace
   path: /spec/steps/3/computeResources/limits/cpu
   value: 100m
 - op: replace
   path: /spec/steps/3/computeResources/requests/cpu
-  value: 100m
-
-# upload-sbom step
-- op: test
-  path: /spec/steps/4/name
-  value: upload-sbom
-- op: replace
-  path: /spec/steps/4/computeResources/limits/memory
-  value: 512Mi
-- op: replace
-  path: /spec/steps/4/computeResources/requests/memory
-  value: 512Mi
-- op: replace
-  path: /spec/steps/4/computeResources/limits/cpu
-  value: 100m
-- op: replace
-  path: /spec/steps/4/computeResources/requests/cpu
   value: 100m
