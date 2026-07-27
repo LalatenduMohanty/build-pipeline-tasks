@@ -23,6 +23,9 @@
   "gomod": {
     "packageRules": [
       {
+        "matchFileNames": [
+          "task-generator/**"
+        ],
         "groupName": "task-generator",
         "schedule": [
           "on sunday"
