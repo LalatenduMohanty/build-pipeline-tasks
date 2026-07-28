@@ -18,6 +18,16 @@
     "includePaths": [
       ".tekton/**",
       "task/**"
+    ],
+    "packageRules": [
+      {
+        "matchFileNames": [
+          "task/**"
+        ],
+        "schedule": [
+          "at any time"
+        ]
+      }
     ]
   },
   "gomod": {
