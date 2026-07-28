@@ -11,6 +11,18 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.10.7
+
+### Fixed
+
+- Thanks to [konflux-build-cli#208], the task now supports per-containerfile
+  ignore files, same as buildah itself.
+  - Previously, the task supported the `.containerignore` and `.dockerignore` files
+    in the root of the context directory, but not the `<containerfile>.containerignore`
+    and `<containerfile>.dockerignore` files.
+
+[konflux-build-cli#208]: https://github.com/konflux-ci/konflux-build-cli/pull/208
+
 ## 0.10.6
 
 ### Fixed
