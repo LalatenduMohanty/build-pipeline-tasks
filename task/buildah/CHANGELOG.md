@@ -11,6 +11,25 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.10.6
+
+### Fixed
+
+- Attaching SBOM attestations using keyless signing. This stopped working between
+  versions 0.10.4 and 0.10.5, when the upload-sbom step upgraded cosign to v3.
+  - Cosign v3 wants to use a "signing config" JSON file instead of accepting
+    service URLs directly as CLI flags. The konflux-ci/konflux-ci deployment
+    of Konflux doesn't provide the config file in the TUF mirror. Fixed
+    by setting `--use-signing-config=false` to still allow direct URLs.
+
+### Changed
+
+- Consolidated all keyless signing code in the upload-sbom step.
+  Previously, if keyless signing was enabled, the task would sign the image
+  in the push step and then the SBOM in upload-sbom step. Now, it will sign both
+  in the upload-sbom step. This has no practical impact, but enables a larger
+  rework of the push step in the future.
+
 ## 0.10.5
 
 ### Added
