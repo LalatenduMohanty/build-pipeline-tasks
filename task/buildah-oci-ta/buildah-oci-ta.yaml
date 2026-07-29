@@ -7,7 +7,7 @@ metadata:
     tekton.dev/pipelines.minVersion: 0.12.1
     tekton.dev/tags: image-build, konflux
   labels:
-    app.kubernetes.io/version: 0.10.6
+    app.kubernetes.io/version: 0.10.7
     build.appstudio.redhat.com/build_type: docker
 spec:
   description: |-
@@ -416,7 +416,7 @@ spec:
           readOnly: true
           subPath: ca-bundle.crt
     - name: build
-      image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+      image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
       args:
         - --build-args
         - $(params.BUILD_ARGS[*])
@@ -662,7 +662,7 @@ spec:
             - SETFCAP
         runAsUser: 0
     - name: push
-      image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+      image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
       workingDir: /var/workdir
       volumeMounts:
         - mountPath: /var/lib/containers
