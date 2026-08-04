@@ -11,6 +11,11 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.7.0
+
+- Hermeto release - <https://github.com/hermetoproject/hermeto/releases/tag/0.60.0>
+- The `.repo` file for RPM dependencies is now named `hermeto.repo` instead of `cachi2.repo`
+
 ## 0.6.0
 
 - Hermeto release - <https://github.com/hermetoproject/hermeto/releases/tag/0.59.0>
