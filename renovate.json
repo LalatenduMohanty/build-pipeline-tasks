@@ -27,6 +27,17 @@
         "schedule": [
           "at any time"
         ]
+      },
+      {
+        "matchFileNames": [
+          "task/prefetch-dependencies/**",
+          "task/prefetch-dependencies-oci-ta/**",
+          "task/prefetch-dependencies-oci-ta-min/**"
+        ],
+        "matchPackageNames": [
+          "quay.io/konflux-ci/hermeto"
+        ],
+        "enabled": false
       }
     ]
   },
