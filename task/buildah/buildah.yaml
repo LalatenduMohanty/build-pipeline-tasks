@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.10.7"
+    app.kubernetes.io/version: "0.11.0"
     build.appstudio.redhat.com/build_type: "docker"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
@@ -326,6 +326,10 @@ spec:
       value: $(params.ALLOW_CROSS_PLATFORM_IMAGES)
     - name: RHSM_MOUNT_CA_CERTS
       value: $(params.RHSM_MOUNT_CA_CERTS)
+    - name: PUSH_FORMAT
+      value: $(params.BUILDAH_FORMAT)
+    - name: TASKRUN_NAME
+      value: $(context.taskRun.name)
     imagePullPolicy: IfNotPresent
   steps:
   - image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
@@ -494,12 +498,29 @@ spec:
         rhsm_args+=(--rhsm-mount-ca-certs="$RHSM_MOUNT_CA_CERTS")
       fi
 
+      sbom_args=()
+      if [[ "$SKIP_SBOM_GENERATION" != true ]]; then
+        sbom_args+=(
+          --sbom-format "$SBOM_TYPE"
+          --syft-select-catalogers "$SBOM_SYFT_SELECT_CATALOGERS"
+          --syft-image-output /shared/sbom-image.json
+        )
+        if [[ "${HERMETIC}" == "false" && "${SBOM_SOURCE_SCAN_ENABLED}" == "true" ]]; then
+          sbom_args+=(--syft-source-output /shared/sbom-source.json)
+        fi
+      fi
+
       # Prevent ShellCheck from giving a warning because 'image' is defined and 'IMAGE' is not.
       declare IMAGE
 
       cmd=(
           konflux-build-cli image build
           -f "$dockerfile_path" -t "$IMAGE" --source "$SOURCE_CODE_DIR" --context "$CONTEXT"
+          # use the taskRun name as a unique tag to prevent the $IMAGE from being garbage collected
+          # if another build pushes to the same $IMAGE output ref
+          --additional-tags "$TASKRUN_NAME"
+          --push
+          --push-format "$PUSH_FORMAT"
           --secret-dirs "src=/additional-secret,name=$ADDITIONAL_SECRET,optional=true"
           --workdir-mount "$WORKINGDIR_MOUNT"
           --target "$TARGET_STAGE"
@@ -529,6 +550,7 @@ spec:
           --prefetch-output-mount /cachi2/output
           "${security_args[@]}"
           "${rhsm_args[@]}"
+          "${sbom_args[@]}"
           --containerfile-json-output /shared/parsed_dockerfile.json
           --resolved-base-images-output /shared/base_images_digests
           --no-cache
@@ -541,19 +563,20 @@ spec:
 
       echo "[$(date --utc -Ins)] $(printf '%q ' "${cmd[@]}")"
 
-      "${cmd[@]}"
+      "${cmd[@]}" | tee /tmp/results.json
 
+      jq -j .image_url /tmp/results.json > "$(results.IMAGE_URL.path)"
+      jq -j .digest /tmp/results.json > "$(results.IMAGE_DIGEST.path)"
+      jq -j '"\(.image_url)@\(.digest)"' /tmp/results.json > "$(results.IMAGE_REF.path)"
+
+      echo
       echo "[$(date --utc -Ins)] Add metadata"
 
       # Save the SBOM produced in prefetch so it can be merged into the final SBOM later
       if [ -f "${prefetch_dir}/output/bom.json" ]; then
         echo "Making copy of sbom-prefetch.json"
-        cp "${prefetch_dir}/output/bom.json" ./sbom-prefetch.json
+        cp "${prefetch_dir}/output/bom.json" /shared/sbom-prefetch.json
       fi
-
-      image_name=$(echo "${IMAGE##*/}" | tr ':' '-')
-      buildah push "$IMAGE" oci:"/shared/$image_name.oci:$IMAGE"
-      echo "/shared/$image_name.oci" > /shared/container_path
 
       echo "[$(date --utc -Ins)] End build"
 
@@ -578,172 +601,6 @@ spec:
       mountPath: /mnt/proxy-ca-bundle
       readOnly: true
     workingDir: $(workspaces.source.path)
-
-  - name: push
-    image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
-    computeResources:
-      limits:
-        memory: 4Gi
-        cpu: 600m
-      requests:
-        memory: 4Gi
-        cpu: 600m
-    env:
-    - name: HOME
-      value: /root
-    - name: BUILDAH_FORMAT
-      value: $(params.BUILDAH_FORMAT)
-    - name: TASKRUN_NAME
-      value: $(context.taskRun.name)
-    script: |
-      #!/bin/bash
-      set -euo pipefail
-
-      echo "[$(date --utc -Ins)] Update CA trust"
-
-      ca_bundle=/mnt/trusted-ca/ca-bundle.crt
-      if [ -f "$ca_bundle" ]; then
-        echo "INFO: Using mounted CA bundle: $ca_bundle"
-        cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors
-        update-ca-trust
-      fi
-
-      echo "[$(date --utc -Ins)] Convert image"
-
-      # While we can build images with the desired format, we will simplify any local
-      # and remote build differences by just performing any necessary conversions at
-      # push time.
-      push_format=oci
-      if [ "${BUILDAH_FORMAT}" == "docker" ]; then
-        push_format=docker
-      fi
-
-      echo "[$(date --utc -Ins)] Push image with unique tag"
-
-      buildah_retries=3
-
-      # Push to a unique tag based on the TaskRun name to avoid race conditions
-      echo "Pushing to ${IMAGE%:*}:${TASKRUN_NAME}"
-      if ! retry buildah push \
-        --format="$push_format" \
-        --retry "$buildah_retries" \
-        --tls-verify="$TLSVERIFY" \
-        "$IMAGE" \
-        "docker://${IMAGE%:*}:${TASKRUN_NAME}"
-      then
-        echo "Failed to push image to ${IMAGE%:*}:${TASKRUN_NAME}"
-        exit 1
-      fi
-
-      echo "[$(date --utc -Ins)] Push image with git revision"
-
-      # Push to a tag based on the git revision
-      echo "Pushing to ${IMAGE}"
-      if ! retry buildah push \
-        --format="$push_format" \
-        --retry "$buildah_retries" \
-        --tls-verify="$TLSVERIFY" \
-        --digestfile "$(workspaces.source.path)/image-digest" "$IMAGE" \
-        "docker://$IMAGE"
-      then
-        echo "Failed to push image to $IMAGE"
-        exit 1
-      fi
-
-      tee "$(results.IMAGE_DIGEST.path)" < "$(workspaces.source.path)"/image-digest
-      echo -n "$IMAGE" | tee "$(results.IMAGE_URL.path)"
-      {
-        echo -n "${IMAGE}@"
-        cat "$(workspaces.source.path)/image-digest"
-      } > "$(results.IMAGE_REF.path)"
-      echo
-
-      echo "[$(date --utc -Ins)] End push"
-
-    securityContext:
-      runAsUser: 0
-      capabilities:
-        add:
-        - SETFCAP
-    volumeMounts:
-    - mountPath: /var/lib/containers
-      name: varlibcontainers
-    - name: trusted-ca
-      mountPath: /mnt/trusted-ca
-      readOnly: true
-    workingDir: $(workspaces.source.path)
-
-  - name: sbom-syft-generate
-    image: quay.io/konflux-ci/task-runner:2.0.0@sha256:4b01fbf98fa7155f5c21443c285f88853864ae7cc66981cf6b543fc6ba16b81b
-    computeResources:
-      limits:
-        memory: 4Gi
-        cpu: 1100m
-      requests:
-        memory: 4Gi
-        cpu: 1100m
-    # Respect Syft configuration if the user has it in the root of their repository
-    # (need to set the workdir, see https://github.com/anchore/syft/issues/2465)
-    workingDir: $(workspaces.source.path)/source
-    script: |
-      #!/bin/bash
-      set -euo pipefail
-      echo "[$(date --utc -Ins)] Generate SBOM"
-
-      if [ "${SKIP_SBOM_GENERATION}" = "true" ]; then
-        echo "Skipping SBOM generation"
-        exit 0
-      fi
-
-      case $SBOM_TYPE in
-        cyclonedx)
-          syft_sbom_type=cyclonedx-json@1.5 ;;
-        spdx)
-          syft_sbom_type=spdx-json@2.3 ;;
-        *)
-          echo "Invalid SBOM type: $SBOM_TYPE. Valid: cyclonedx, spdx" >&2
-          exit 1
-          ;;
-      esac
-
-      OCI_DIR="$(cat /shared/container_path)"
-
-      syft_oci_args=(
-        oci-dir:"${OCI_DIR}"
-        --output "$syft_sbom_type=$(workspaces.source.path)/sbom-image.json"
-      )
-      syft_source_args=(
-        dir:"$(workspaces.source.path)/$SOURCE_CODE_DIR/$CONTEXT"
-        --output "$syft_sbom_type=$(workspaces.source.path)/sbom-source.json"
-      )
-
-      if [ "${SBOM_SYFT_SELECT_CATALOGERS}" != "" ]; then
-        syft_oci_args+=(--select-catalogers "${SBOM_SYFT_SELECT_CATALOGERS}")
-        syft_source_args+=(--select-catalogers "${SBOM_SYFT_SELECT_CATALOGERS}")
-      fi
-
-      echo "Running syft on the image"
-      syft "${syft_oci_args[@]}"
-      if [[ "${HERMETIC}" == "false" && "${SBOM_SOURCE_SCAN_ENABLED}" == "true" ]]; then
-        echo "Running syft on the source code"
-        syft "${syft_source_args[@]}"
-      else
-        echo "Skipping syft on source code."
-      fi
-
-      echo "[$(date --utc -Ins)] End sbom-syft-generate"
-
-    securityContext:
-      runAsUser: 0
-    volumeMounts:
-    - mountPath: /var/lib/containers
-      name: varlibcontainers
-    - mountPath: /shared
-      name: shared
-    - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
-      name: trusted-ca
-      readOnly: true
-      subPath: ca-bundle.crt
 
   - name: prepare-sboms
     image: quay.io/konflux-ci/mobster:1.2.1-1782136886@sha256:1374bc35c71781987cce00ef5efe2be42923f83def19b60a570e947189b90d15
@@ -802,19 +659,19 @@ spec:
 
       mobster_args+=(
         oci-image
-        --from-syft "$(workspaces.source.path)/sbom-image.json"
+        --from-syft /shared/sbom-image.json
         --image-pullspec "$IMAGE_URL"
         --image-digest "$IMAGE_DIGEST"
         --parsed-dockerfile-path "/shared/parsed_dockerfile.json"
         --base-image-digest-file "/shared/base_images_digests"
       )
 
-      if [ -f "$(workspaces.source.path)/sbom-source.json" ]; then
-        mobster_args+=(--from-syft "$(workspaces.source.path)/sbom-source.json")
+      if [ -f /shared/sbom-source.json ]; then
+        mobster_args+=(--from-syft /shared/sbom-source.json)
       fi
 
-      if [ -f "$(workspaces.source.path)/sbom-prefetch.json" ]; then
-        mobster_args+=(--from-hermeto "$(workspaces.source.path)/sbom-prefetch.json")
+      if [ -f /shared/sbom-prefetch.json ]; then
+        mobster_args+=(--from-hermeto /shared/sbom-prefetch.json)
       fi
 
       if [ -n "${TARGET_STAGE}" ]; then

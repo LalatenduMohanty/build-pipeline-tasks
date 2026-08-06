@@ -279,12 +279,8 @@ if ! [[ $IS_LOCALHOST ]]; then
 		ret += "\n  # See https://stackoverflow.com/questions/6592376/prevent-ssh-from-breaking-up-shell-script-parameters"
 		ret += "\n  ssh $SSH_ARGS \"$SSH_HOST\" $PORT_FORWARD podman  run " + env + "" + podmanArgs + "    --user=0 \"${PODMAN_NVIDIA_ARGS[@]@Q}\" --rm --entrypoint='' \"${BUILDER_IMAGE@Q}\" /" + containerScript + ` "${@@Q}"`
 
-		// Sync the contents of the workspaces back so subsequent tasks can use them
+		// Sync the contents of the volumes back so subsequent tasks can use them
 		ret += "\n  echo \"[$(date --utc -Ins)] Rsync back\""
-		for _, workspace := range task.Spec.Workspaces {
-			ret += "\n  rsync -razW --stats \"$SSH_HOST:$BUILD_DIR/workspaces/" + workspace.Name + "/\" \"$(workspaces." + workspace.Name + ".path)/\""
-		}
-
 		for _, volume := range task.Spec.StepTemplate.VolumeMounts {
 			ret += "\n  rsync -razW --stats \"$SSH_HOST:$BUILD_DIR/volumes/" + volume.Name + "/\" " + volume.MountPath + "/"
 		}
@@ -292,8 +288,6 @@ if ! [[ $IS_LOCALHOST ]]; then
 		ret += "\n  rsync -razW --stats \"$SSH_HOST:$BUILD_DIR/results/\" \"/tekton/results/\""
 
 		ret += `
-  echo "[$(date --utc -Ins)] Buildah pull"
-  buildah pull "oci:$(cat /shared/container_path):$IMAGE"
 else
   bash ` + containerScript + ` "$@"
 fi

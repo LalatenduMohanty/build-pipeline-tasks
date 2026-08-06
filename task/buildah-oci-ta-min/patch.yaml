@@ -36,10 +36,10 @@
   path: /spec/steps/1/computeResources/requests/cpu
   value: 500m
 
-# push step
+# prepare-sboms step
 - op: test
   path: /spec/steps/2/name
-  value: push
+  value: prepare-sboms
 - op: replace
   path: /spec/steps/2/computeResources/limits/memory
   value: 256Mi
@@ -53,10 +53,10 @@
   path: /spec/steps/2/computeResources/requests/cpu
   value: 100m
 
-# sbom-syft-generate step
+# upload-sbom step
 - op: test
   path: /spec/steps/3/name
-  value: sbom-syft-generate
+  value: upload-sbom
 - op: replace
   path: /spec/steps/3/computeResources/limits/memory
   value: 512Mi
@@ -65,41 +65,7 @@
   value: 512Mi
 - op: replace
   path: /spec/steps/3/computeResources/limits/cpu
-  value: 256m
+  value: 100m
 - op: replace
   path: /spec/steps/3/computeResources/requests/cpu
-  value: 256m
-
-# prepare-sboms step
-- op: test
-  path: /spec/steps/4/name
-  value: prepare-sboms
-- op: replace
-  path: /spec/steps/4/computeResources/limits/memory
-  value: 256Mi
-- op: replace
-  path: /spec/steps/4/computeResources/requests/memory
-  value: 256Mi
-- op: replace
-  path: /spec/steps/4/computeResources/limits/cpu
-  value: 100m
-- op: replace
-  path: /spec/steps/4/computeResources/requests/cpu
-  value: 100m
-
-# upload-sbom step
-- op: test
-  path: /spec/steps/5/name
-  value: upload-sbom
-- op: replace
-  path: /spec/steps/5/computeResources/limits/memory
-  value: 512Mi
-- op: replace
-  path: /spec/steps/5/computeResources/requests/memory
-  value: 512Mi
-- op: replace
-  path: /spec/steps/5/computeResources/limits/cpu
-  value: 100m
-- op: replace
-  path: /spec/steps/5/computeResources/requests/cpu
   value: 100m
