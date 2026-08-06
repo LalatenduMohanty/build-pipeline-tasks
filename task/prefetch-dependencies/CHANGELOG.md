@@ -11,6 +11,14 @@ If that's not something you ever plan to do, consider removing this section.
 
 *Nothing yet.*
 
+## 0.7.1
+
+- Hermeto release - <https://github.com/hermetoproject/hermeto/releases/tag/0.60.1>
+- Fixes [GHSA-rfhj-wcpf-9jcx](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-rfhj-wcpf-9jcx)
+- Fixes [GHSA-rpww-j58f-22xr](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-rpww-j58f-22xr)
+- Fixes [GHSA-pxcg-wp85-mcrg](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-pxcg-wp85-mcrg)
+- Fixes [GHSA-wx26-fvpq-v9rp](https://github.com/hermetoproject/hermeto/security/advisories/GHSA-wx26-fvpq-v9rp)
+
 ## 0.7.0
 
 - Hermeto release - <https://github.com/hermetoproject/hermeto/releases/tag/0.60.0>
